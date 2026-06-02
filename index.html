@@ -1,0 +1,621 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام الأعمدة الذكية للمراقبة الأمنية الحضرية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#06090f;--bg2:#0c1120;--card:#111827;--cardh:#182035;--blue:#2d7ff9;--cyan:#00d4ff;--green:#00c48c;--red:#ff3b5c;--orange:#ff9f0a;--purple:#a855f7;--gold:#f0b429;--t1:#eef2f7;--t2:#8899aa;--t3:#556677;--bd:#1a2540}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Sans Arabic',sans-serif;background:var(--bg);color:var(--t1);display:flex;flex-direction:column;min-height:100vh}
+
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:10000;display:none;align-items:center;justify-content:center;overflow-y:auto;padding:20px}
+.login-overlay.show{display:flex}
+.login-bg{position:fixed;inset:0;pointer-events:none}
+.login-bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(45,127,249,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(45,127,249,.03) 1px,transparent 1px);background-size:50px 50px}
+.login-bg-glow{position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(45,127,249,.06),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%)}
+.login-container{width:100%;max-width:460px;position:relative;z-index:2}
+.login-card{background:var(--bg2);border-radius:20px;border:1px solid var(--bd);padding:30px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo img{width:70px;height:70px;border-radius:16px;object-fit:cover;box-shadow:0 0 25px rgba(45,127,249,.3);margin-bottom:10px}
+.login-logo h2{font-size:17px;font-weight:700;margin-bottom:4px}
+.login-logo p{font-size:9px;color:var(--cyan);letter-spacing:2px;font-family:'JetBrains Mono',monospace;text-transform:uppercase}
+.role-tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--card);border-radius:12px;padding:4px;border:1px solid var(--bd)}
+.role-tab{flex:1;padding:12px 8px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--t3);font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Arabic',sans-serif;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px}
+.role-tab .ti{font-size:20px}
+.role-tab.active{color:var(--t1);box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.role-tab[data-role="authority"].active{background:linear-gradient(135deg,rgba(45,127,249,.15),rgba(45,127,249,.05));color:var(--blue);border-color:rgba(45,127,249,.2)}
+.role-tab[data-role="public"].active{background:linear-gradient(135deg,rgba(0,196,140,.15),rgba(0,196,140,.05));color:var(--green);border-color:rgba(0,196,140,.2)}
+.login-form h3{font-size:16px;font-weight:700;margin-bottom:18px;text-align:center}
+.ig{margin-bottom:14px}.ig label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;font-weight:500}
+.ig input,.ig select{width:100%;padding:12px 16px;background:var(--card);border:1px solid var(--bd);border-radius:10px;color:var(--t1);font-size:14px;font-family:'IBM Plex Sans Arabic',sans-serif;outline:none}
+.ig input:focus,.ig select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(45,127,249,.1)}
+.ig input::placeholder{color:var(--t3)}.ig select option{background:var(--card)}
+.lrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lrem{display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:12px;color:var(--t2);cursor:pointer}
+.lrem input{accent-color:var(--blue)}
+.lbtn{width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans Arabic',sans-serif;color:#fff}
+.lbtn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3)}
+.lbtn-auth{background:linear-gradient(135deg,var(--blue),#1a6df0)}.lbtn-pub{background:linear-gradient(135deg,var(--green),#00a070)}
+.ltoggle{text-align:center;margin-top:14px;font-size:12px;color:var(--t3)}.ltoggle a{color:var(--cyan);cursor:pointer;font-weight:600}
+.lerr{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.2);color:var(--red);padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px;display:none;text-align:center}
+.lerr.show{display:block}
+.linfo{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);border-radius:10px;padding:14px;margin-top:16px;font-size:11px;color:var(--t2);line-height:1.7;text-align:center}
+.rbi{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.rbi-a{background:rgba(45,127,249,.12);color:var(--blue)}.rbi-p{background:rgba(0,196,140,.12);color:var(--green)}
+
+.header{flex-shrink:0;background:linear-gradient(180deg,rgba(12,17,32,.98),rgba(6,9,15,.95));border-bottom:1px solid var(--bd);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;z-index:100}
+.hdr{display:flex;align-items:center;gap:14px}
+.logo{width:48px;height:48px;border-radius:12px;overflow:hidden;box-shadow:0 0 20px rgba(45,127,249,.2);flex-shrink:0}
+.logo img{width:100%;height:100%;object-fit:cover}
+.ht h1{font-size:15px;font-weight:700}.ht p{font-size:8px;color:var(--cyan);letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;text-transform:uppercase}
+.hleft{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hs{display:flex;align-items:center;gap:6px;background:rgba(17,24,39,.8);padding:6px 12px;border-radius:9px;font-size:11px;color:var(--t2);border:1px solid rgba(26,37,64,.6);font-family:'JetBrains Mono',monospace}
+.hs .d{width:7px;height:7px;border-radius:50%;animation:pulse 2s infinite}
+.d-g{background:var(--green);box-shadow:0 0 8px rgba(0,196,140,.3)}.d-r{background:var(--red);box-shadow:0 0 8px rgba(255,59,92,.3)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.live{background:linear-gradient(135deg,#ff3b5c,#e0243a);color:#fff;font-size:10px;font-weight:700;padding:5px 12px;border-radius:7px;animation:blink 1.5s infinite;letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.ubadge{display:flex;align-items:center;gap:8px;background:rgba(17,24,39,.8);padding:6px 12px;border-radius:9px;border:1px solid rgba(26,37,64,.6);font-size:12px;color:var(--t2)}
+.lout{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.2);color:var(--red);padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Arabic',sans-serif}
+.lout:hover{background:var(--red);color:#fff}
+
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;background:var(--bd)}
+
+.sec{background:var(--bg);padding:18px 24px 12px}
+.sec-h{font-size:16px;font-weight:700;color:var(--t2);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.sec-h .cnt{background:var(--blue);color:#fff;font-size:11px;padding:3px 12px;border-radius:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+
+/* AI STATS BAR */
+.ai-stats{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.ai-stat{flex:1;min-width:140px;background:var(--card);border-radius:10px;padding:14px 16px;border:1px solid var(--bd);display:flex;align-items:center;gap:12px}
+.ai-stat .asi{font-size:28px;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-stat .ast{text-align:right}
+.ai-stat .asv{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
+.ai-stat .asl{font-size:11px;color:var(--t3);margin-top:2px}
+.asi-persons{background:rgba(45,127,249,.12);color:var(--blue)}
+.asi-vehicles{background:rgba(0,196,140,.12);color:var(--green)}
+.asi-threats{background:rgba(255,59,92,.12);color:var(--red)}
+.asi-status{background:rgba(168,85,247,.12);color:var(--purple)}
+
+/* CAMERA GRID */
+.cam-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 0 20px}
+.cc{background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--bd);cursor:pointer;transition:all .3s}
+.cc:hover{border-color:var(--blue);box-shadow:0 0 25px rgba(45,127,249,.15)}
+.cf{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden}
+.cf iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;z-index:1}
+.sg{position:absolute;inset:0;background:rgba(0,50,25,.1);pointer-events:none;z-index:2}
+.sl{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:2}
+.sn{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,255,100,.15),transparent);animation:sc 3.5s linear infinite;z-index:2}
+@keyframes sc{0%{top:0}100%{top:100%}}
+.vg{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45));pointer-events:none;z-index:2}
+.co{position:absolute;top:0;left:0;right:0;padding:10px 14px;display:flex;justify-content:space-between;background:linear-gradient(to bottom,rgba(0,0,0,.75),transparent);pointer-events:none;z-index:4}
+.co .cn{font-size:11px;font-weight:600;color:#fff;font-family:'JetBrains Mono',monospace;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.co .cs{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:600}
+.co .rd{width:6px;height:6px;background:var(--red);border-radius:50%;animation:pulse 1s infinite}
+.ct{position:absolute;bottom:8px;right:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.45);z-index:4}
+
+/* AI DETECTION CANVAS */
+.ai-canvas{position:absolute;inset:0;z-index:3;pointer-events:none}
+
+/* AI OVERLAY PER CAMERA */
+.ai-overlay{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.4),transparent);pointer-events:none;z-index:4;display:flex;justify-content:space-between;align-items:flex-end}
+.ai-left{display:flex;gap:8px}
+.ai-chip{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;backdrop-filter:blur(4px)}
+.ai-chip-person{background:rgba(45,127,249,.25);color:var(--blue);border:1px solid rgba(45,127,249,.3)}
+.ai-chip-vehicle{background:rgba(0,196,140,.25);color:var(--green);border:1px solid rgba(0,196,140,.3)}
+.ai-chip-motion{background:rgba(255,159,10,.25);color:var(--orange);border:1px solid rgba(255,159,10,.3)}
+.ai-right{display:flex;align-items:center;gap:6px}
+.threat-bar{width:60px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.threat-fill{height:100%;border-radius:3px;transition:width .5s,background .5s}
+.threat-label{font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.threat-low{color:var(--green)}.threat-med{color:var(--orange)}.threat-high{color:var(--red)}
+.threat-low .threat-fill{background:var(--green)}.threat-med .threat-fill{background:var(--orange)}.threat-high .threat-fill{background:var(--red)}
+
+/* DETECTION BOX ANIMATION */
+.detect-box{position:absolute;border:2px solid var(--blue);border-radius:4px;pointer-events:none;z-index:3;animation:dbfade .3s ease;box-shadow:0 0 8px rgba(45,127,249,.3)}
+.detect-box.vehicle{border-color:var(--green);box-shadow:0 0 8px rgba(0,196,140,.3)}
+.detect-box.danger{border-color:var(--red);box-shadow:0 0 12px rgba(255,59,92,.4);animation:dbpulse 1s infinite}
+@keyframes dbfade{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes dbpulse{0%,100%{border-color:var(--red);box-shadow:0 0 12px rgba(255,59,92,.4)}50%{border-color:var(--orange);box-shadow:0 0 20px rgba(255,59,92,.6)}}
+.detect-label{position:absolute;top:-18px;left:0;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:700;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.detect-label.person{background:var(--blue);color:#fff}
+.detect-label.vehicle{background:var(--green);color:#fff}
+.detect-label.danger{background:var(--red);color:#fff}
+
+.ci{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--bd)}
+.ci .cl{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:5px}
+.ca{display:flex;gap:5px}
+.cb{width:36px;height:36px;border-radius:9px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s}
+.cb:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.cti{padding:8px 14px;background:rgba(0,212,255,.04);border-top:1px solid rgba(0,212,255,.08);font-size:11px;color:var(--cyan);text-align:center;font-weight:500}
+
+/* MAP */
+.map-wrap{height:480px;position:relative;background:var(--bg)}
+#map{position:absolute;inset:0}
+.map-controls{position:absolute;top:14px;left:14px;z-index:500;display:flex;gap:5px}
+.map-controls .cb{background:var(--bg2);box-shadow:0 2px 10px rgba(0,0,0,.3)}
+
+/* ALERTS */
+.alert-list{display:flex;flex-direction:column;gap:8px;padding:0 0 20px}
+.ai-item{background:var(--card);border-radius:12px;padding:16px 18px;border-right:4px solid var(--blue);cursor:pointer;transition:all .25s}
+.ai-item:hover{background:var(--cardh);transform:translateX(-3px)}
+.ai-item.critical{border-right-color:var(--red)}.ai-item.warning{border-right-color:var(--orange)}.ai-item.info{border-right-color:var(--cyan)}.ai-item.success{border-right-color:var(--green)}
+.ai-item.smart{border-right-color:var(--purple);background:linear-gradient(90deg,rgba(168,85,247,.06),var(--card))}
+.ah{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.at{font-size:11px;font-weight:700;padding:3px 10px;border-radius:7px;font-family:'JetBrains Mono',monospace}
+.at.critical{background:rgba(255,59,92,.15);color:var(--red)}.at.warning{background:rgba(255,159,10,.15);color:var(--orange)}.at.info{background:rgba(0,212,255,.1);color:var(--cyan)}.at.success{background:rgba(0,196,140,.12);color:var(--green)}.at.smart{background:rgba(168,85,247,.12);color:var(--purple)}
+.atime{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.amsg{font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:4px}
+.ameta{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;display:flex;gap:12px;align-items:center}
+.ameta .conf{color:var(--cyan)}
+
+/* BOTTOM BAR */
+.bb{flex-shrink:0;background:linear-gradient(to top,var(--bg2),var(--bg));border-top:1px solid var(--bd);padding:16px 24px;display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+.bbtn{display:flex;align-items:center;gap:16px;padding:16px 28px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--t1);cursor:pointer;min-width:175px;transition:all .3s;position:relative;overflow:hidden}
+.bbtn::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.bbtn:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.bbtn .bi{font-size:24px;width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.bbtn .bt{text-align:right}.bbtn .bl{font-size:14px;font-weight:600}.bbtn .bs{font-size:10px;color:var(--t3);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.bb-sos{border-color:rgba(255,59,92,.3)}.bb-sos::before{background:var(--red)}.bb-sos .bi{background:rgba(255,59,92,.12);color:var(--red)}.bb-sos:hover{border-color:var(--red)}
+.bb-id{border-color:rgba(45,127,249,.3)}.bb-id::before{background:var(--blue)}.bb-id .bi{background:rgba(45,127,249,.12);color:var(--blue)}.bb-id:hover{border-color:var(--blue)}
+.bb-ct{border-color:rgba(168,85,247,.3)}.bb-ct::before{background:var(--purple)}.bb-ct .bi{background:rgba(168,85,247,.12);color:var(--purple)}.bb-ct:hover{border-color:var(--purple)}
+.bb-rp{border-color:rgba(255,159,10,.3)}.bb-rp::before{background:var(--orange)}.bb-rp .bi{background:rgba(255,159,10,.12);color:var(--orange)}.bb-rp:hover{border-color:var(--orange)}
+.bb-ar{border-color:rgba(0,196,140,.3)}.bb-ar::before{background:var(--green)}.bb-ar .bi{background:rgba(0,196,140,.12);color:var(--green)}.bb-ar:hover{border-color:var(--green)}
+
+.pp{display:none;flex-direction:column;align-items:center;padding:40px 24px;text-align:center}
+.pp.show{display:flex}
+.pp .pi{font-size:64px;margin-bottom:16px}.pp h2{font-size:22px;font-weight:700;margin-bottom:8px}
+.pp>p{font-size:14px;color:var(--t2);line-height:1.7;max-width:420px;margin-bottom:28px}
+.pf{width:100%;max-width:440px;background:var(--card);border-radius:16px;padding:28px;border:1px solid var(--bd);text-align:right}
+.pf h3{font-size:16px;font-weight:600;margin-bottom:18px;text-align:center}
+.pf select,.pf textarea{width:100%;padding:14px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;color:var(--t1);font-size:14px;font-family:'IBM Plex Sans Arabic',sans-serif;outline:none;margin-bottom:14px}
+.pf textarea{min-height:100px;resize:vertical}
+.psub{width:100%;padding:16px;background:linear-gradient(135deg,var(--green),#00a070);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans Arabic',sans-serif}
+.mr{width:100%;max-width:440px;margin-top:28px}.mr h4{font-size:14px;color:var(--t2);margin-bottom:14px;text-align:center}
+.mri{background:var(--card);border-radius:10px;padding:14px;margin-bottom:8px;border:1px solid var(--bd);border-right:3px solid var(--green)}
+.mri .mt{display:flex;justify-content:space-between;margin-bottom:5px}.mri .mty{font-size:11px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace}.mri .mtm{font-size:13px;color:var(--t2)}
+
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);z-index:2000;align-items:center;justify-content:center;padding:20px}
+.mo.show{display:flex}
+.md{background:var(--bg2);border-radius:20px;border:1px solid var(--bd);max-width:520px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.md-h{padding:18px 24px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+.md-h h3{font-size:16px;font-weight:700}
+.md-x{width:36px;height:36px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--t3);cursor:pointer;font-size:16px}
+.md-x:hover{background:var(--red);color:#fff}
+.md-b{padding:24px}
+.md-b .dr{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.dl{font-size:13px;color:var(--t2);display:flex;align-items:center;gap:8px}
+.dv{font-size:14px;font-weight:600;color:var(--t1)}.dv.sa{color:var(--green)}
+.md-f{padding:16px 24px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end}
+.mb{padding:11px 22px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Arabic',sans-serif}
+.mb-p{background:var(--blue);color:#fff}.mb-p:hover{background:#1a6df0}.mb-s{background:var(--card);color:var(--t2);border:1px solid var(--bd)}.mb-s:hover{background:var(--cardh)}.mb-d{background:var(--red);color:#fff}
+
+.ce{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:3000;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+.ce.show{display:flex}
+.ev{width:100%;max-width:1000px;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;position:relative}
+.ev iframe{width:100%;height:100%;position:absolute;top:0;left:0;border:none;z-index:1}
+.ei{margin-top:16px;font-size:17px;font-weight:700}
+.ec{position:absolute;top:16px;left:16px;width:46px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.5);color:#fff;cursor:pointer;font-size:20px;z-index:10}
+.ec:hover{background:var(--red)}
+.idc{background:linear-gradient(135deg,var(--card),rgba(26,37,64,.4));border-radius:14px;padding:28px;border:1px solid var(--bd);text-align:center;margin-bottom:16px}
+.ida{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px}
+.rs{margin-top:16px}.rs h4{font-size:14px;color:var(--t2);margin-bottom:12px}
+.ri{background:var(--card);border-radius:10px;padding:14px;margin-bottom:8px;border:1px solid var(--bd)}
+.ri .rt{display:flex;justify-content:space-between;margin-bottom:6px}
+.ri .rid{font-size:12px;font-weight:700;color:var(--cyan);font-family:'JetBrains Mono',monospace}
+.ri .rdd{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.ri .rds{font-size:13px;color:var(--t2);line-height:1.5}
+.ri .rst{margin-top:8px;display:inline-block;font-size:11px;font-weight:600;padding:3px 12px;border-radius:6px}
+.rst.done{background:rgba(0,196,140,.12);color:var(--green)}.rst.pending{background:rgba(255,159,10,.12);color:var(--orange)}.rst.active{background:rgba(255,59,92,.12);color:var(--red)}
+
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card);color:var(--t1);padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;z-index:5000;border:1px solid var(--bd);box-shadow:0 10px 40px rgba(0,0,0,.4);white-space:nowrap}
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;border:1px solid var(--bd)!important;border-radius:12px!important;color:var(--t1)!important}
+.leaflet-popup-tip{background:var(--bg2)!important}
+@media(max-width:768px){.cam-grid{grid-template-columns:1fr}.map-wrap{height:350px}.bbtn{min-width:140px;padding:14px 20px}.bbtn .bi{width:42px;height:42px;font-size:20px}.ai-stats{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<div class="login-overlay show" id="loginOL">
+  <div class="login-bg"><div class="login-bg-grid"></div><div class="login-bg-glow"></div></div>
+  <div class="login-container"><div class="login-card">
+    <div class="login-logo">
+      <img src="https://i.imgur.com/EX0SDhp.png" alt="" onerror="this.style.display='none'">
+      <h2>نظام الأعمدة الذكية</h2>
+      <p>SMART PILLARS URBAN SECURITY SURVEILLANCE</p>
+    </div>
+    <div class="role-tabs">
+      <button class="role-tab active" data-role="authority" onclick="swR('authority')"><span class="ti">🏛️</span><span>الجهات الرسمية</span></button>
+      <button class="role-tab" data-role="public" onclick="swR('public')"><span class="ti">👥</span><span>عامة الناس</span></button>
+    </div>
+    <div class="lerr" id="lerr"></div>
+    <div class="login-form" id="lf">
+      <h3>🔐 تسجيل الدخول</h3>
+      <div class="ig"><label>البريد الإلكتروني</label><input type="email" id="lEmail" dir="ltr" placeholder="example@email.com"></div>
+      <div class="ig"><label>كلمة المرور</label><input type="password" id="lPass" dir="ltr" placeholder="••••••••"></div>
+      <label class="lrem"><input type="checkbox" id="lRem" checked> تذكرني</label>
+      <button class="lbtn lbtn-auth" id="lBtn" onclick="doLogin()">تسجيل الدخول</button>
+      <div class="ltoggle"><span>ليس لديك حساب؟</span> <a onclick="showReg()">إنشاء حساب</a></div>
+      <div class="linfo" id="linfo"></div>
+    </div>
+    <div class="login-form" id="rf" style="display:none">
+      <h3 id="rTitle">📝 إنشاء حساب</h3>
+      <div id="rAuth" style="display:none">
+        <div class="ig"><label>اسم المسؤول</label><input type="text" id="aN"></div>
+        <div class="ig"><label>الجهة</label><select id="aO"><option>الأمن الوطني</option><option>الدرك الوطني</option><option>الحماية المدنية</option><option>البلدية</option><option>وزارة الداخلية</option><option>جهة أخرى</option></select></div>
+        <div class="ig"><label>الرقم الوظيفي</label><input type="text" id="aM" dir="ltr"></div>
+        <div class="ig"><label>البريد المؤسسي</label><input type="email" id="aE" dir="ltr"></div>
+        <div class="lrow"><div class="ig"><label>كلمة المرور</label><input type="password" id="aP" dir="ltr"></div><div class="ig"><label>تأكيد</label><input type="password" id="aP2" dir="ltr"></div></div>
+        <div class="ig"><label>🔑 رمز التحقق</label><input type="password" id="aC" dir="ltr"></div>
+      </div>
+      <div id="rPub" style="display:none">
+        <div class="ig"><label>الاسم الكامل</label><input type="text" id="pN"></div>
+        <div class="ig"><label>رقم الهاتف</label><input type="tel" id="pPh" dir="ltr"></div>
+        <div class="ig"><label>البريد الإلكتروني</label><input type="email" id="pE" dir="ltr"></div>
+        <div class="lrow"><div class="ig"><label>كلمة المرور</label><input type="password" id="pP" dir="ltr"></div><div class="ig"><label>تأكيد</label><input type="password" id="pP2" dir="ltr"></div></div>
+      </div>
+      <button class="lbtn lbtn-auth" id="rBtn" onclick="doReg()">إنشاء الحساب</button>
+      <div class="ltoggle"><span>لديك حساب؟</span> <a onclick="showLog()">تسجيل الدخول</a></div>
+    </div>
+  </div></div>
+</div>
+
+<header class="header">
+  <div class="hdr">
+    <div class="logo"><img src="https://i.imgur.com/EX0SDhp.png" alt="" onerror="this.parentElement.innerHTML='<div style=&quot;width:100%;height:100%;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:20px&quot;>🛡️</div>'"></div>
+    <div class="ht"><h1>نظام الأعمدة الذكية للمراقبة الأمنية الحضرية</h1><p>SMART PILLARS URBAN SECURITY SURVEILLANCE v3.2</p></div>
+  </div>
+  <div class="hleft">
+    <div class="live" id="liveB">● مباشر</div>
+    <div class="hs camS"><span class="d d-g"></span>4 كاميرات</div>
+    <div class="hs"><span class="d d-r"></span><span id="aCnt">0 تنبيهات</span></div>
+    <div class="hs">🕐 <span id="clk">--:--:--</span></div>
+    <div class="ubadge" id="uB" style="display:none"><span id="uA">👤</span> <span id="uN">---</span></div>
+    <button class="lout" id="lOb" onclick="doLogout()" style="display:none">خروج</button>
+  </div>
+</header>
+
+<div class="main" id="main">
+  <div class="sec" id="secCam">
+    <div class="sec-h">🧠 التحليل الذكي بالكاميرات <span class="cnt">AI</span></div>
+    <div class="ai-stats" id="aiStats">
+      <div class="ai-stat"><div class="asi asi-persons">🚶</div><div class="ast"><div class="asv" id="totalPersons">0</div><div class="asl">شخص مكتشف</div></div></div>
+      <div class="ai-stat"><div class="asi asi-vehicles">🚗</div><div class="ast"><div class="asv" id="totalVehicles">0</div><div class="asl">مركبة مكتشفة</div></div></div>
+      <div class="ai-stat"><div class="asi asi-threats">⚠️</div><div class="ast"><div class="asv" id="totalThreats">0</div><div class="asl">تهديد نشط</div></div></div>
+      <div class="ai-stat"><div class="asi asi-status">🤖</div><div class="ast"><div class="asv" id="aiStatus" style="font-size:14px;color:var(--green)">نشط</div><div class="asl">محرك التحليل</div></div></div>
+    </div>
+    <div class="cam-grid" id="camG"></div>
+  </div>
+
+  <div class="sec" id="secMap" style="padding:0">
+    <div class="sec-h" style="padding:18px 24px 12px;background:var(--bg)">🗺️ خريطة المراقبة</div>
+    <div class="map-wrap"><div id="map"></div><div class="map-controls"><button class="cb" onclick="map&&map.zoomIn()">+</button><button class="cb" onclick="map&&map.zoomOut()">−</button><button class="cb" onclick="map&&map.setView([36.7535,3.0595],14)">⌂</button></div></div>
+  </div>
+
+  <div class="sec" id="secAlerts">
+    <div class="sec-h">🔔 التنبيهات الذكية <span class="cnt" id="aB">0</span> <button class="cb" onclick="clrA()" style="margin-right:auto;margin-left:8px;font-size:11px;width:auto;padding:0 12px;height:28px">✕ مسح</button></div>
+    <div class="alert-list" id="aL"></div>
+  </div>
+
+  <div class="pp" id="PP">
+    <div class="pi">🆘</div><h2>صفحة البلاغات العاجلة</h2>
+    <p>أرسل بلاغاً في حالة تعرضك للخطر. سيتم إخطار الجهات الأمنية فوراً.</p>
+    <div class="pf"><h3>📋 إرسال بلاغ جديد</h3>
+      <select id="rpT"><option value="">— نوع البلاغ —</option><option>🚨 خطف أطفال</option><option>👊 شجار / عنف</option><option>🏃 سرقة</option><option>🚗 حادث سير</option><option>🔥 حريق</option><option>❓ خطر آخر</option></select>
+      <textarea id="rpD" placeholder="اكتب وصفاً مختصراً..."></textarea>
+      <button class="psub" onclick="sendRP()">إرسال البلاغ 🚀</button>
+    </div>
+    <div class="mr"><h4>📄 بلاغاتي</h4><div id="mrL"></div></div>
+  </div>
+</div>
+
+<div class="bb">
+  <button class="bbtn bb-sos" onclick="openSOS()"><div class="bi">🆘</div><div class="bt"><div class="bl">نداء الاستغاثة</div><div class="bs">URGENCE</div></div></button>
+  <button class="bbtn bb-id" onclick="openID()"><div class="bi">👤</div><div class="bt"><div class="bl">هوية المستخدم</div><div class="bs">IDENTITÉ</div></div></button>
+  <button class="bbtn bb-ct" id="bCT" onclick="openCT()"><div class="bi">📋</div><div class="bt"><div class="bl">عقد الخدمة</div><div class="bs">CONTRAT</div></div></button>
+  <button class="bbtn bb-rp" id="bRP" onclick="openRP()"><div class="bi">📑</div><div class="bt"><div class="bl">التقارير</div><div class="bs">RAPPORTS</div></div></button>
+  <button class="bbtn bb-ar" id="bAR" style="display:none" onclick="openAR()"><div class="bi">📝</div><div class="bt"><div class="bl">تقديم بلاغ</div><div class="bs">SIGNALER</div></div></button>
+</div>
+
+<div class="ce" id="ceV">
+  <button class="ec" onclick="closeE()">✕</button>
+  <div class="ev"><iframe id="eI" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe><div class="sg"></div><div class="sl"></div><div class="sn"></div><div class="vg"></div><div class="co"><div class="cn" id="eN"></div><div class="cs"><span class="rd"></span> REC</div></div><div class="ct" id="eT"></div></div>
+  <div class="ei" id="eL"></div>
+</div>
+
+<div class="mo" id="moV" onclick="if(event.target===this)cM()"><div class="md" id="moC"></div></div>
+
+<script>
+var CR='authority',CU=null,AI_ON=false;
+var ADMINS=[
+  {name:'Guard Admin',email:'guardadmin',password:'guardacces0655',role:'admin',title:'مالك النظام',org:'الأعمدة الذكية SPA',mat:'ADM-001'},
+  {name:'Admin1',email:'admin1',password:'guardacces0558',role:'admin',title:'مسؤول أول',org:'الأعمدة الذكية SPA',mat:'ADM-002'}
+];
+var CODES=['AUTH-DZ-7K9M2-X4PL','SEC-GR-8N3V6-W2QR','GOV-AL-5T8J1-Y7HM','AUTH-2026-R4K9-BN3X','SEC-INV-6W2L-P8MQ','GOV-DZ-9F5C-J3TK','AUTH-PR-4H7N-R1WV','SEC-AL-2M8B-X5GQ','GOV-2026-K6P3-L9YJ','AUTH-SV-1R7T-N4WK','SEC-DZ-3V9M-Q6HP','GOV-GR-7B2F-X8LC','AUTH-2026-J5K1-W3RN','SEC-PR-8T4G-M7YV','GOV-AL-6N9Q-P2XK','AUTH-DZ-R3L8-B5WJ','SEC-GR-4M6V-H9TN','GOV-INV-7P1C-K4QR','AUTH-AL-9W5J-L2XM','SEC-2026-F8N3-Y6HK'];
+var CAMS=[
+  {id:'CAM-01',name:'كاميرا البث المباشر 01',loc:'شارع ديدوش مراد، ساحة الشهداء',lat:36.7538,lng:3.0588,c:'#2d7ff9',v:'https://www.youtube.com/embed/UemFRPrl1hk?autoplay=1&mute=1'},
+  {id:'CAM-02',name:'كاميرا البث المباشر 02',loc:'شارع الشهداء، وسط مدينة الجزائر',lat:36.758,lng:3.06,c:'#00c48c',v:'https://www.youtube.com/embed/VR-x3HdhKLQ?autoplay=1&mute=1'},
+  {id:'CAM-03',name:'كاميرا البث المباشر 03',loc:'شارع زيغود يوسف، حسين داي',lat:36.75,lng:3.055,c:'#ff9f0a',v:'https://www.youtube.com/embed/-riwfpAQopw?autoplay=1&mute=1'},
+  {id:'CAM-04',name:'كاميرا البث المباشر 04',loc:'شارع فرانتز فانون، بلدية الجزائر',lat:36.761,lng:3.063,c:'#a855f7',v:'https://www.youtube.com/embed/AQMaw6OAeHY?autoplay=1&mute=1'}
+];
+
+var alerts=[],aid=0,map,MK=[],aTimer;
+
+/* ═══════ AI ANALYSIS ENGINE ═══════ */
+var AI={
+  camStates:{},
+  totals:{persons:0,vehicles:0,threats:0},
+  detections:[
+    {type:'person',label:'شخص',icon:'🚶',color:'var(--blue)',cls:'person'},
+    {type:'vehicle',label:'مركبة',icon:'🚗',color:'var(--green)',cls:'vehicle'}
+  ],
+  threats:[
+    {msg:'شخص يتحرك بسرعة غير طبيعية',level:'high',label:'خطر'},
+    {msg:'تجمع أشخاص مشبوه بالقرب من المدرسة',level:'high',label:'خطر'},
+    {msg:'شخص يراقب المارة لفترة طويلة',level:'med',label:'تحذير'},
+    {msg:'سيارة تسير عكس الاتجاه',level:'high',label:'خطر'},
+    {msg:'سيارة متوقفة في منطقة محظورة',level:'med',label:'تحذير'},
+    {msg:'شخص يمشي وحيداً في وقت متأخر',level:'med',label:'تحذير'},
+    {msg:'حركة مفاجئة — احتمال شجار',level:'high',label:'خطر'},
+    {msg:'طفل بدون مرافق بالكاميرا',level:'high',label:'خطر عاجل'},
+    {msg:'شخص يحاول فتح سيارات مركونة',level:'high',label:'خطر'},
+    {msg:'دراجة نارية بسرعة كبيرة',level:'med',label:'تحذير'},
+    {msg:'شخص يختبئ خلف الأعمدة',level:'high',label:'خطر'},
+    {msg:'تجمع أكثر من 5 أشخاص في مكان ضيق',level:'med',label:'مراقبة'},
+    {msg:'سيارة بدون إضاءة في الليل',level:'high',label:'خطر'},
+    {msg:'شخص يحمل جسماً طويلاً (احتمال سلاح)',level:'high',label:'خطر عاجل'}
+  ],
+  smartAlerts:[
+    {msg:'كشف تغيّر في نمط حركة المشاة — احتمال تجمّع احتجاجي',t:'smart'},
+    {msg:'تحليل الأسلوب: شخص يسلك نفس المسار للمرة الثالثة — مراقبة',t:'smart'},
+    {msg:'كشف سرعة مركبة تتجاوز 80 كم/س في منطقة سكنية',t:'critical'},
+    {msg:'تنبؤ ذكي: احتمال وقوع حادث عند التقاطع خلال 5 دقائق',t:'warning'},
+    {msg:'كشف غياب الإنارة في المنطقة — ارتفاع مخاطر الجريمة',t:'smart'},
+    {msg:'تحليل صوتي: صوت تحطم زجاج مكتشف بالكاميرا 02',t:'critical'},
+    {msg:'نمط مشبوه: مركبة تدور حول المنطقة للمرة الثانية',t:'smart'},
+    {msg:'كشف طفل يبكي — تم تحويل تنبيه عاجل للجهات المختصة',t:'critical'}
+  ]
+};
+
+function initAI(){
+  for(var i=0;i<CAMS.length;i++){
+    AI.camStates[CAMS[i].id]={
+      persons:0,vehicles:0,threat:0,threatLevel:'low',
+      detections:[],lastUpdate:Date.now()
+    };
+  }
+}
+
+function generateDetections(){
+  var totalP=0,totalV=0,totalT=0;
+  for(var i=0;i<CAMS.length;i++){
+    var c=CAMS[i],st=AI.camStates[c.id];
+    var np=Math.floor(Math.random()*5)+1;
+    var nv=Math.floor(Math.random()*3);
+    st.persons=np;st.vehicles=nv;
+    st.detections=[];
+
+    for(var j=0;j<np;j++){
+      st.detections.push({
+        type:'person',
+        x:10+Math.random()*60,y:15+Math.random()*55,
+        w:6+Math.random()*4,h:15+Math.random()*10,
+        conf:75+Math.random()*24
+      });
+    }
+    for(var j=0;j<nv;j++){
+      st.detections.push({
+        type:'vehicle',
+        x:5+Math.random()*70,y:30+Math.random()*40,
+        w:12+Math.random()*8,h:8+Math.random()*5,
+        conf:80+Math.random()*19
+      });
+    }
+
+    var threatChance=Math.random();
+    if(threatChance<0.15){st.threat=80+Math.random()*20;st.threatLevel='high'}
+    else if(threatChance<0.4){st.threat=40+Math.random()*39;st.threatLevel='med'}
+    else{st.threat=Math.random()*39;st.threatLevel='low'}
+
+    totalP+=np;totalV+=nv;
+    if(st.threatLevel==='high')totalT++;
+  }
+  AI.totals={persons:totalP,vehicles:totalV,threats:totalT};
+}
+
+function updateAIStats(){
+  var pe=document.getElementById('totalPersons'),ve=document.getElementById('totalVehicles'),te=document.getElementById('totalThreats');
+  if(pe)pe.textContent=AI.totals.persons;
+  if(ve)ve.textContent=AI.totals.vehicles;
+  if(te)te.textContent=AI.totals.threats;
+}
+
+function renderDetections(){
+  for(var i=0;i<CAMS.length;i++){
+    var c=CAMS[i],st=AI.camStates[c.id];
+    var container=document.getElementById('detect-'+c.id);
+    if(!container)continue;
+    container.innerHTML='';
+
+    for(var j=0;j<st.detections.length;j++){
+      var d=st.detections[j];
+      var box=document.createElement('div');
+      box.className='detect-box'+(d.type==='vehicle'?' vehicle':'');
+      box.style.left=d.x+'%';box.style.top=d.y+'%';
+      box.style.width=d.w+'%';box.style.height=d.h+'%';
+      box.style.animationDelay=(j*0.1)+'s';
+      var lbl=document.createElement('div');
+      lbl.className='detect-label '+(d.type==='person'?'person':'vehicle');
+      lbl.textContent=(d.type==='person'?'🚶 شخص':'🚗 مركبة')+' '+Math.round(d.conf)+'%';
+      box.appendChild(lbl);
+      container.appendChild(box);
+    }
+
+    var ol=document.getElementById('aiol-'+c.id);
+    if(!ol)continue;
+    var tc=st.threatLevel,tn=st.threat;
+    var tlClass=tc==='high'?'threat-high':tc==='med'?'threat-med':'threat-low';
+    var tlText=tc==='high'?'⚠️ خطر':tc==='med'?'متوسط':'منخفض';
+    ol.innerHTML=
+      '<div class="ai-left">'+
+        '<span class="ai-chip ai-chip-person">🚶 '+st.persons+'</span>'+
+        '<span class="ai-chip ai-chip-vehicle">🚗 '+st.vehicles+'</span>'+
+        (tc!=='low'?'<span class="ai-chip ai-chip-motion">⚡ حركة مشبوهة</span>':'')+
+      '</div>'+
+      '<div class="ai-right">'+
+        '<div class="threat-bar"><div class="threat-fill '+tlClass+'" style="width:'+tn+'%"></div></div>'+
+        '<span class="threat-label '+tlClass.split('-')[0]+'-'+tlClass.split('-')[1]+'">'+tlText+' '+Math.round(tn)+'%</span>'+
+      '</div>';
+  }
+}
+
+function checkThreatsAndAlert(){
+  for(var i=0;i<CAMS.length;i++){
+    var c=CAMS[i],st=AI.camStates[c.id];
+    if(st.threatLevel==='high'&&Math.random()<0.25){
+      var threat=AI.threats[Math.floor(Math.random()*AI.threats.length)];
+      addSmartAlert('critical','🤖 AI — '+c.id,threat.msg+' — '+c.loc,c.id,threat.level==='high'?92:78);
+    }
+  }
+
+  if(Math.random()<0.08){
+    var sa=AI.smartAlerts[Math.floor(Math.random()*AI.smartAlerts.length)];
+    var rc=CAMS[Math.floor(Math.random()*CAMS.length)];
+    addSmartAlert(sa.t,'🧠 تحليل ذكي',sa.msg+' — '+rc.loc,rc.id,85+Math.random()*14);
+  }
+}
+
+function addSmartAlert(type,label,msg,cam,conf){
+  alerts.unshift({
+    id:++aid,type:type,label:label,msg:msg,
+    cam:cam,loc:getCamLoc(cam),
+    time:new Date().toLocaleTimeString('ar-MA'),
+    date:new Date().toLocaleDateString('ar-MA'),
+    conf:Math.round(conf),smart:true
+  });
+  if(alerts.length>60)alerts.pop();
+  renderAlerts();updAC();
+}
+
+function getCamLoc(id){for(var i=0;i<CAMS.length;i++)if(CAMS[i].id===id)return CAMS[i].loc;return''}
+
+function aiLoop(){
+  if(!CU||CU.role==='public')return;
+  generateDetections();
+  updateAIStats();
+  renderDetections();
+  checkThreatsAndAlert();
+  setTimeout(aiLoop,2000+Math.random()*2000);
+}
+
+/* ═══════ AUTH ═══════ */
+function init(){if(!localStorage.getItem('sg_users'))localStorage.setItem('sg_users','[]');if(!localStorage.getItem('sg_uc'))localStorage.setItem('sg_uc','[]');if(!localStorage.getItem('sg_pr'))localStorage.setItem('sg_pr','[]')}
+function swR(r){CR=r;document.querySelectorAll('.role-tab').forEach(function(t){t.classList.remove('active')});document.querySelector('.role-tab[data-role="'+r+'"]').classList.add('active');document.getElementById('lBtn').className='lbtn lbtn-'+r;document.getElementById('rBtn').className='lbtn lbtn-'+r;document.getElementById('linfo').innerHTML=r==='authority'?'<span class="rbi rbi-a">🏛️ جهة رسمية</span> رمز التحقق مطلوب':'<span class="rbi rbi-p">👤 عام</span> التسجيل مفتوح — بلاغات فقط';showLog()}
+function showLog(){document.getElementById('lf').style.display='block';document.getElementById('rf').style.display='none';document.getElementById('lerr').classList.remove('show')}
+function showReg(){document.getElementById('lf').style.display='none';document.getElementById('rf').style.display='block';document.getElementById('lerr').classList.remove('show');document.getElementById('rAuth').style.display=CR==='authority'?'block':'none';document.getElementById('rPub').style.display=CR==='public'?'block':'none';document.getElementById('rTitle').innerHTML=CR==='authority'?'🏛️ تسجيل جهة رسمية':'👤 تسجيل مواطن'}
+function sE(m){var e=document.getElementById('lerr');e.textContent=m;e.classList.add('show');setTimeout(function(){e.classList.remove('show')},4000)}
+function doLogin(){var em=document.getElementById('lEmail').value.trim(),pw=document.getElementById('lPass').value,rm=document.getElementById('lRem').checked;if(!em||!pw){sE('يرجى ملء جميع الحقول');return}var adm=null;for(var i=0;i<ADMINS.length;i++){if((ADMINS[i].email===em||ADMINS[i].name.toLowerCase()===em.toLowerCase())&&ADMINS[i].password===pw){adm=ADMINS[i];break}}if(adm){var s=JSON.stringify(adm);rm?localStorage.setItem('sg_user',s):sessionStorage.setItem('sg_user',s);showApp(adm);return}var us=JSON.parse(localStorage.getItem('sg_users')||'[]'),u=null;for(var i=0;i<us.length;i++){if(us[i].email===em&&us[i].password===pw){u=us[i];break}}if(!u){sE('بيانات الدخول غير صحيحة');return}if(u.role!==CR){sE('هذا الحساب مسجل كـ "'+{admin:'مسؤول النظام',authority:'جهة رسمية',public:'مواطن'}[u.role]+'"');return}var s=JSON.stringify(u);rm?localStorage.setItem('sg_user',s):sessionStorage.setItem('sg_user',s);showApp(u)}
+function doReg(){var us=JSON.parse(localStorage.getItem('sg_users')||'[]'),uc=JSON.parse(localStorage.getItem('sg_uc')||'[]'),u;if(CR==='authority'){var n=document.getElementById('aN').value.trim(),o=document.getElementById('aO').value,m=document.getElementById('aM').value.trim(),e=document.getElementById('aE').value.trim(),p=document.getElementById('aP').value,p2=document.getElementById('aP2').value,c=document.getElementById('aC').value.trim();if(!n||!m||!e||!p||!p2||!c){sE('يرجى ملء جميع الحقول');return}if(p.length<6){sE('كلمة المرور: 6 أحرف على الأقل');return}if(p!==p2){sE('كلمتا المرور غير متطابقتين');return}var f=false;for(var i=0;i<CODES.length;i++){if(CODES[i]===c){f=true;break}}if(!f){sE('رمز التحقق غير صحيح');return}var u2=false;for(var i=0;i<uc.length;i++){if(uc[i]===c){u2=true;break}}if(u2){sE('هذا الرمز تم استخدامه بالفعل');return}var d=false;for(var i=0;i<us.length;i++){if(us[i].email===e){d=true;break}}if(d){sE('البريد مسجل بالفعل');return}u={name:n,email:e,password:p,role:'authority',title:'مسؤول أمني',org:o,mat:m,phone:''};uc.push(c);localStorage.setItem('sg_uc',JSON.stringify(uc))}else{var n=document.getElementById('pN').value.trim(),ph=document.getElementById('pPh').value.trim(),e=document.getElementById('pE').value.trim(),p=document.getElementById('pP').value,p2=document.getElementById('pP2').value;if(!n||!e||!p||!p2){sE('يرجى ملء جميع الحقول');return}if(p.length<6){sE('كلمة المرور: 6 أحرف على الأقل');return}if(p!==p2){sE('كلمتا المرور غير متطابقتين');return}var d=false;for(var i=0;i<us.length;i++){if(us[i].email===e){d=true;break}}if(d){sE('البريد مسجل بالفعل');return}u={name:n,email:e,password:p,role:'public',title:'مواطن',org:'',mat:'',phone:ph}}us.push(u);localStorage.setItem('sg_users',JSON.stringify(us));localStorage.setItem('sg_user',JSON.stringify(u));showApp(u);toast('مرحباً '+u.name+'!')}
+function doLogout(){localStorage.removeItem('sg_user');sessionStorage.removeItem('sg_user');CU=null;AI_ON=false;document.getElementById('uB').style.display='none';document.getElementById('lOb').style.display='none';document.getElementById('loginOL').classList.add('show');if(aTimer)clearTimeout(aTimer);alerts=[]}
+function checkAuth(){init();var s=localStorage.getItem('sg_user')||sessionStorage.getItem('sg_user');if(s)showApp(JSON.parse(s));else{document.getElementById('loginOL').classList.add('show');swR('authority')}}
+
+function showApp(u){
+  CU=u;document.getElementById('loginOL').classList.remove('show');
+  document.getElementById('uB').style.display='flex';document.getElementById('lOb').style.display='inline-block';
+  document.getElementById('uN').textContent=u.name;
+  document.getElementById('uA').textContent={admin:'👑',authority:'🏛️',public:'👤'}[u.role];
+  var sc=document.getElementById('secCam'),sm=document.getElementById('secMap'),sa=document.getElementById('secAlerts'),pp=document.getElementById('PP');
+  var bCT=document.getElementById('bCT'),bRP=document.getElementById('bRP'),bAR=document.getElementById('bAR');
+  sc.style.display='';sm.style.display='';sa.style.display='';pp.classList.remove('show');
+  bCT.style.display='';bRP.style.display='';bAR.style.display='';
+  if(u.role==='authority'){bCT.style.display='none'}
+  else if(u.role==='public'){sc.style.display='none';sm.style.display='none';sa.style.display='none';pp.classList.add('show');bCT.style.display='none';bRP.style.display='none';bAR.style.display='';loadMR()}
+  else{bCT.style.display='none'}
+  if(!AI_ON){AI_ON=true;initAI();initApp()}
+  setTimeout(function(){if(map)map.invalidateSize()},500);
+  setTimeout(function(){if(map)map.invalidateSize()},1500);
+  setTimeout(function(){if(map)map.invalidateSize()},3000);
+}
+
+function initApp(){
+  setInterval(function(){document.getElementById('clk').textContent=new Date().toLocaleTimeString('ar-MA')},1000);
+  document.getElementById('clk').textContent=new Date().toLocaleTimeString('ar-MA');
+  if(CU&&CU.role!=='public'){renderCams();setTimeout(initMap,1200);aiLoop();schedA()}
+}
+
+function renderCams(){
+  var g=document.getElementById('camG');if(!g)return;g.innerHTML='';
+  for(var i=0;i<CAMS.length;i++){
+    var c=CAMS[i];
+    var card=document.createElement('div');card.className='cc';
+    card.innerHTML=
+      '<div class="cf">'+
+        '<iframe src="'+c.v+'" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>'+
+        '<div class="sg"></div><div class="sl"></div><div class="sn"></div><div class="vg"></div>'+
+        '<div class="ai-canvas" id="detect-'+c.id+'"></div>'+
+        '<div class="co"><div class="cn">'+c.id+' — '+c.name+'</div><div class="cs"><span class="rd"></span> REC</div></div>'+
+        '<div class="ct" id="ts-'+c.id+'"></div>'+
+        '<div class="ai-overlay" id="aiol-'+c.id+'"></div>'+
+      '</div>'+
+      '<div class="ci"><div class="cl">📍 '+c.loc+'</div><div class="ca"><button class="cb" onclick="event.stopPropagation();expandC(\''+c.id+'\')">⛶</button><button class="cb" onclick="event.stopPropagation();focusC(\''+c.id+'\')">◎</button></div></div>'+
+      '<div class="cti">🧠 تحليل ذكي نشط — كشف الأشخاص والمركبات — '+c.id+'</div>';
+    (function(id){card.onclick=function(){expandC(id)}})(c.id);
+    g.appendChild(card);
+  }
+}
+
+setInterval(function(){var ts=new Date().toLocaleString('en-GB',{hour12:false}).replace(',',' ');for(var i=0;i<CAMS.length;i++){var el=document.getElementById('ts-'+CAMS[i].id);if(el)el.textContent=ts}},1000);
+
+function expandC(id){var c;for(var i=0;i<CAMS.length;i++)if(CAMS[i].id===id)c=CAMS[i];if(!c)return;document.getElementById('eI').src=c.v;document.getElementById('eN').textContent=c.id+' — '+c.name;document.getElementById('eL').textContent=c.loc;document.getElementById('ceV').classList.add('show')}
+function closeE(){document.getElementById('eI').src='';document.getElementById('ceV').classList.remove('show')}
+
+function initMap(){
+  if(map)return;
+  map=L.map('map',{zoomControl:false}).setView([36.7535,3.0595],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+  for(var i=0;i<CAMS.length;i++){
+    var c=CAMS[i];
+    var ic=L.divIcon({html:'<div style="width:34px;height:34px;border-radius:50%;background:'+c.c+';display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid rgba(255,255,255,.8);cursor:pointer;box-shadow:0 0 16px '+c.c+'80">📹</div>',iconSize:[34,34],iconAnchor:[17,17],className:''});
+    var m=L.marker([c.lat,c.lng],{icon:ic}).addTo(map);
+    m.bindPopup('<div style="font-family:IBM Plex Sans Arabic,sans-serif;direction:rtl;text-align:right;min-width:180px"><b style="color:'+c.c+';font-size:12px">'+c.id+'</b><br><b style="font-size:14px">'+c.name+'</b><br><small style="color:#888">'+c.loc+'</small><br><div style="margin-top:8px"><span style="background:rgba(168,85,247,.12);color:var(--purple);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">🧠 AI نشط</span></div></div>');
+    m.cid=c.id;MK.push(m);
+    L.circle([c.lat,c.lng],{radius:120,color:c.c,fillColor:c.c,fillOpacity:.04,weight:1,dashArray:'6 4'}).addTo(map);
+  }
+  setTimeout(function(){if(map)map.invalidateSize()},400);
+  setTimeout(function(){if(map)map.invalidateSize()},1200);
+}
+function focusC(id){if(!map)return;var c;for(var i=0;i<CAMS.length;i++)if(CAMS[i].id===id)c=CAMS[i];if(!c)return;map.flyTo([c.lat,c.lng],17,{duration:1});for(var i=0;i<MK.length;i++)if(MK[i].cid===id)MK[i].openPopup()}
+
+function addAlert(){var types=[{t:'critical',l:'🚨 خطر',m:['تم رصد طفل يمشي وحيداً بالقرب من مدرسة','شخص مشبوه يراقب أطفال في حديقة الحرية','سيارة بدون لوحات مركونة بالكاميرا']},{t:'warning',l:'⚠️ تحذير',m:['شجار في شارع زيغود يوسف','سيارة بسرعة مفرطة','تجمع غير طبيعي']}];var td=types[Math.floor(Math.random()*types.length)],msg=td.m[Math.floor(Math.random()*td.m.length)],cam=CAMS[Math.floor(Math.random()*CAMS.length)];alerts.unshift({id:++aid,type:td.t,label:td.l,msg:msg,cam:cam.id,loc:cam.loc,time:new Date().toLocaleTimeString('ar-MA'),date:new Date().toLocaleDateString('ar-MA'),conf:Math.round(70+Math.random()*28),smart:false});if(alerts.length>60)alerts.pop();renderAlerts();updAC()}
+function renderAlerts(){var el=document.getElementById('aL');if(!el)return;var h='';for(var i=0;i<Math.min(alerts.length,15);i++){var a=alerts[i];h+='<div class="ai-item '+a.type+(a.smart?' smart':'')+'" onclick="showA('+a.id+')"><div class="ah"><span class="at '+(a.smart&&a.type!=='critical'?'smart':a.type)+'">'+a.label+'</span><span class="atime">'+a.time+'</span></div><div class="amsg">'+a.msg+'</div><div class="ameta"><span>📷 '+a.cam+'</span>'+(a.conf?'<span class="conf">🎯 دقة '+a.conf+'%</span>':'')+'</div></div>'}el.innerHTML=h}
+function updAC(){var c=alerts.length;var b=document.getElementById('aB');if(b)b.textContent=c;var t=document.getElementById('aCnt');if(t)t.textContent=c+' تنبيهات'}
+function clrA(){alerts=[];renderAlerts();updAC();toast('🗑️ تم مسح التنبيهات')}
+function showA(id){var a=null;for(var i=0;i<alerts.length;i++)if(alerts[i].id===id)a=alerts[i];if(!a)return;oM('<div class="md-h"><h3>'+a.label+'</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b"><div class="dr"><span class="dl">رقم التنبيه</span><span class="dv">#ALT-'+String(a.id).padStart(4,'0')+'</span></div><div class="dr"><span class="dl">الوقت</span><span class="dv">'+a.time+' — '+a.date+'</span></div><div class="dr"><span class="dl">الكاميرا</span><span class="dv">'+a.cam+'</span></div><div class="dr"><span class="dl">الموقع</span><span class="dv">'+a.loc+'</span></div><div class="dr"><span class="dl">الرسالة</span><span class="dv" style="max-width:220px;text-align:right">'+a.msg+'</span></div>'+(a.conf?'<div class="dr"><span class="dl">🎯 دقة الكشف</span><span class="dv" style="color:var(--cyan)">'+a.conf+'%</span></div>':'')+(a.smart?'<div class="dr"><span class="dl">المصدر</span><span class="dv" style="color:var(--purple)">🧠 تحليل ذكي تلقائي</span></div>':'')+'</div><div class="md-f"><button class="mb mb-s" onclick="cM()">إغلاق</button>'+(CU&&CU.role!=='public'?'<button class="mb mb-p" onclick="cM();toast(\'📤 تم الإرسال للجهات المختصة\')">إرسال للأمن</button>':'')+'</div>')}
+function schedA(){aTimer=setTimeout(function(){if(CU&&CU.role!=='public'){addAlert();schedA()}},15000+Math.random()*15000)}
+
+function oM(h){document.getElementById('moC').innerHTML=h;document.getElementById('moV').classList.add('show')}
+function cM(){document.getElementById('moV').classList.remove('show')}
+function openSOS(){oM('<div class="md-h"><h3 style="color:var(--red)">🆘 نداء الاستغاثة</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b" style="text-align:center"><div style="font-size:56px;margin-bottom:14px">🚨</div><h3 style="color:var(--red);margin-bottom:8px;font-size:18px">حالة طوارئ</h3><p style="color:var(--t2);margin-bottom:20px;font-size:14px">سيتم إرسال إشعار فوري لجميع الأجهزة الأمنية</p><div style="display:flex;flex-direction:column;gap:8px"><button class="mb mb-d" style="width:100%;padding:14px;font-size:14px" onclick="sSOS(\'kidnap\')">🧒 خطف أطفال</button><button class="mb mb-d" style="width:100%;padding:14px;font-size:14px;background:var(--orange)" onclick="sSOS(\'fight\')">👊 شجار / عصابات</button><button class="mb mb-d" style="width:100%;padding:14px;font-size:14px;background:#dc2626" onclick="sSOS(\'theft\')">🏃 سرقة</button><button class="mb mb-d" style="width:100%;padding:14px;font-size:14px;background:#b91c1c" onclick="sSOS(\'accident\')">🚗 حادث سير</button></div></div>')}
+function sSOS(t){var m={kidnap:'🧒 بلاغ خطف',fight:'👊 بلاغ شجار',theft:'🏃 بلاغ سرقة',accident:'🚗 بلاغ حادث'};cM();toast('🚨 تم إرسال '+m[t]);addSmartAlert('critical','🚨 طوارئ SOS',m[t]+' — بلاغ عاجل',CU?CU.name:'مجهول',100)}
+function openID(){var u=CU||{name:'---',email:'---',role:'public'};var rc={admin:'var(--gold)',authority:'var(--blue)',public:'var(--green)'};var av={admin:'👑',authority:'🏛️',public:'👤'};var rl={admin:'مسؤول النظام',authority:'جهة رسمية',public:'مواطن'};oM('<div class="md-h"><h3>👤 هوية المستخدم</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b"><div class="idc"><div class="ida" style="background:linear-gradient(135deg,'+rc[u.role]+',var(--cyan))">'+av[u.role]+'</div><div style="font-size:18px;font-weight:700;margin-bottom:4px">'+u.name+'</div><div style="font-size:14px;color:'+rc[u.role]+';margin-bottom:12px">'+rl[u.role]+'</div><span style="background:rgba(0,196,140,.12);color:var(--green);padding:4px 14px;border-radius:8px;font-size:11px;font-weight:600">● نشط</span></div><div class="dr"><span class="dl">📧 البريد</span><span class="dv" style="direction:ltr;font-size:12px">'+u.email+'</span></div>'+(u.org?'<div class="dr"><span class="dl">🏢 الجهة</span><span class="dv">'+u.org+'</span></div>':'')+(u.mat?'<div class="dr"><span class="dl">🪪 الرقم</span><span class="dv" style="font-family:JetBrains Mono,monospace">'+u.mat+'</span></div>':'')+'<div class="dr"><span class="dl">🔑 الصلاحيات</span><span class="dv" style="color:'+rc[u.role]+'">'+(u.role==='admin'?'صلاحيات كاملة':u.role==='authority'?'كاميرات • تنبيهات':'بلاغات فقط')+'</span></div></div><div class="md-f"><button class="mb mb-s" onclick="cM()">إغلاق</button></div>')}
+function openCT(){oM('<div class="md-h"><h3>📋 عقد الخدمة</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b"><div style="background:linear-gradient(135deg,rgba(168,85,247,.08),rgba(45,127,249,.06));border-radius:14px;padding:20px;margin-bottom:16px;border:1px solid rgba(168,85,247,.12);text-align:center"><div style="font-size:28px;margin-bottom:6px">📄</div><h4 style="font-size:15px">عقد رقم CTR-2024-0312</h4></div><div class="dr"><span class="dl">🏢 الطرف الأول</span><span class="dv">الأعمدة الذكية SPA</span></div><div class="dr"><span class="dl">🏫 الطرف الثاني</span><span class="dv">بلدية الجزائر</span></div><div class="dr"><span class="dl">📅 المدة</span><span class="dv">01/03/2024 — 28/02/2027</span></div><div class="dr"><span class="dl">💰 القيمة</span><span class="dv">48,000,000 دج</span></div><div class="dr"><span class="dl">📹 الكاميرات</span><span class="dv sa">48 كاميرا (4 نشطة)</span></div><div class="dr"><span class="dl">⚡ الحالة</span><span class="dv sa">● ساري المفعول</span></div></div><div class="md-f"><button class="mb mb-s" onclick="cM()">إغلاق</button></div>')}
+function openRP(){var r=[{id:'RPT-2026-001',d:'08/05/2026',desc:'تقرير محاولة خطف',s:'done',st:'مغلق'},{id:'RPT-2026-002',d:'05/05/2026',desc:'شجار في شارع الشهداء',s:'done',st:'مغلق'},{id:'RPT-2026-003',d:'09/05/2026',desc:'سرقة تحت التهديد',s:'active',st:'تحقيق'},{id:'RPT-2026-004',d:'10/05/2026',desc:'شخص مشبوه يراقب الأطفال',s:'pending',st:'مراجعة'}];var h='<div class="md-h"><h3>📑 التقارير</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b"><div style="display:flex;gap:8px;margin-bottom:16px"><div style="flex:1;background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bd)"><div style="font-size:24px;font-weight:700;color:var(--blue);font-family:JetBrains Mono,monospace">4</div><div style="font-size:10px;color:var(--t3)">الإجمالي</div></div><div style="flex:1;background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bd)"><div style="font-size:24px;font-weight:700;color:var(--green);font-family:JetBrains Mono,monospace">2</div><div style="font-size:10px;color:var(--t3)">مغلقة</div></div><div style="flex:1;background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bd)"><div style="font-size:24px;font-weight:700;color:var(--red);font-family:JetBrains Mono,monospace">1</div><div style="font-size:10px;color:var(--t3)">تحقيق</div></div><div style="flex:1;background:var(--card);border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bd)"><div style="font-size:24px;font-weight:700;color:var(--orange);font-family:JetBrains Mono,monospace">1</div><div style="font-size:10px;color:var(--t3)">مراجعة</div></div></div><div class="rs"><h4>📄 التقارير</h4>';for(var i=0;i<r.length;i++){h+='<div class="ri"><div class="rt"><span class="rid">'+r[i].id+'</span><span class="rdd">'+r[i].d+'</span></div><div class="rds">'+r[i].desc+'</div><span class="rst '+r[i].s+'">'+r[i].st+'</span></div>'}h+='</div></div><div class="md-f"><button class="mb mb-s" onclick="cM()">إغلاق</button><button class="mb mb-p" onclick="cM();toast(\'📥 تحميل PDF...\')">تحميل PDF</button></div>';oM(h)}
+function sendRP(){var t=document.getElementById('rpT').value,d=document.getElementById('rpD').value.trim();if(!t){toast('⚠️ اختر نوع البلاغ');return}if(!d){toast('⚠️ اكتب وصفاً');return}var a=JSON.parse(localStorage.getItem('sg_pr')||'[]');a.unshift({uid:CU.email,uname:CU.name,type:t,desc:d,time:new Date().toLocaleTimeString('ar-MA'),date:new Date().toLocaleDateString('ar-MA')});localStorage.setItem('sg_pr',JSON.stringify(a));document.getElementById('rpT').value='';document.getElementById('rpD').value='';toast('✅ تم إرسال البلاغ');loadMR()}
+function loadMR(){var a=JSON.parse(localStorage.getItem('sg_pr')||'[]').filter(function(r){return CU&&r.uid===CU.email}),el=document.getElementById('mrL');if(!el)return;if(!a.length){el.innerHTML='<p style="text-align:center;font-size:13px;color:var(--t3);padding:24px">لم ترسل بلاغ بعد</p>';return}var h='';for(var i=0;i<a.length;i++){h+='<div class="mri"><div class="mt"><span class="mty">'+a[i].type+'</span><span style="font-size:10px;color:var(--t3);font-family:JetBrains Mono,monospace">'+a[i].time+'</span></div><div class="mtm">'+a[i].desc+'</div></div>'}el.innerHTML=h}
+function openAR(){oM('<div class="md-h"><h3>📝 تقديم بلاغ</h3><button class="md-x" onclick="cM()">✕</button></div><div class="md-b"><div class="ig"><label>نوع البلاغ</label><select id="arT"><option value="">— اختر —</option><option>🚨 خطف</option><option>👊 شجار</option><option>🏃 سرقة</option><option>🚗 حادث</option><option>🔥 حريق</option></select></div><div class="ig"><label>الوصف</label><textarea id="arD" style="width:100%;min-height:90px;padding:14px;background:var(--card);border:1px solid var(--bd);border-radius:10px;color:var(--t1);font-family:IBM Plex Sans Arabic,sans-serif;font-size:14px;resize:vertical" placeholder="اكتب تفاصيل..."></textarea></div></div><div class="md-f"><button class="mb mb-s" onclick="cM()">إلغاء</button><button class="mb mb-p" onclick="subAR()">إرسال</button></div>')}
+function subAR(){var t=document.getElementById('arT').value,d=document.getElementById('arD').value.trim();if(!t){toast('⚠️ اختر نوع البلاغ');return}cM();toast('✅ تم إرسال البلاغ')}
+
+function toast(m){var e=document.querySelector('.toast');if(e)e.remove();var t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},3000)}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){cM();closeE()}});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.getElementById('loginOL').classList.contains('show')){document.getElementById('lf').style.display!=='none'?doLogin():doReg()}});
+checkAuth();
+</script>
+</body>
+</html>
+
